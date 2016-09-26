@@ -8,6 +8,7 @@
   "dependencies": {
     "@google-cloud/datastore": "^0.3.1",
     "async": "~0.2.8",
+    "body-parser": "^1.15.2",
     "express": "*",
     "nconf": "^0.8.4",
     "socket.io": "~0.9.14"

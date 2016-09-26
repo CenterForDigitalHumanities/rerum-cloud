@@ -12,6 +12,9 @@ var config = require('./config');
 
 var app = express();
 app.set('json spaces', 2);
+var bodyParser = require('body-parser');
+app.use(bodyParser.json()); // for parsing application/json
+
 var server = http.createServer(app);
 
 var ds =  require('@google-cloud/datastore');
@@ -39,7 +42,7 @@ var dsClient = ds({
 //     property: value
 //   }
 function fromDatastore (obj) {
-  obj.data["@id"] = "https://api-cubap.c9users.io/res/"+obj.data["@type"]+"/"+obj.key.id;
+  obj.data["@id"] = "https://api-cubap.c9users.io/res/"+obj.data["@type"]+"/"+obj.key.id+".json";
   return obj.data;
 }
 
@@ -102,7 +105,7 @@ function list (kind, limit, token, cb) {
 }
 // [END list]
 
-app.get(['/res/:kind','/collection/:kind'], function(req,res){
+app.get(['/res/:kind.json','/collection/:kind.json'], function(req,res){
   // get all manifests (limit 20 for now)
   list(req.params.kind,20,null,function(err, results){
     if(err){
@@ -117,7 +120,7 @@ app.get(['/res/:kind','/collection/:kind'], function(req,res){
   
 });
 
-app.get('/res/:kind/:id',function(req,res){
+app.get('/res/:kind/:id.json',function(req,res){
   // get anything by id
   var key = dsClient.key([req.params.kind,parseInt(req.params.id)]);
   dsClient.get(key, function(err, entity){
@@ -128,6 +131,45 @@ app.get('/res/:kind/:id',function(req,res){
       return res.status(404).send('No record found.');
     }
     return res.json(fromDatastore(entity)).status(200);
+  });
+});
+
+app.post('/res/:kind',function(req,res){
+  // create anything
+  var key;
+  if(req.params.kind !== req.body['@type'] && req.params.kind !== req.body._collection) {
+    return res.status(400).send("The @type '"+req.body['@type']
+    +" does not match the collection ("+req.params.kind+") to which it is written. "
+    +"Please add the _collection property, if you would like to compel the API.");
+  }
+  if(req.body['@id'] && req.body['@id'].indexOf(req.hostname+req.url)>-1){
+    // id already exists, add to key and scrub from body object.
+    var id = req.body['@id'];
+    var key_id = parseInt(id.substring(id.lastIndexOf("/")+1));
+    key = dsClient.key([req.params.kind,key_id]);
+  } else {
+    // partial key creates a new entry
+    // if req.body['@id'], id is for somewhere else, but we'll fork it.
+    key = dsClient.key(req.params.kind);
+  }
+  dsClient.save({
+    key: key,
+    data: req.body
+  }, function(err, data){
+    if(err){
+      return res.err(err).send(err.response||"Save failed.");
+    }
+    var id,at_id;
+    if(data.mutationResults[0].key){
+      // New object forced a new id in the key
+      id = data.mutationResults[0].key.path[0].id;
+      at_id = req.protocol+"://"+req.hostname+req.url+"/"+id+".json";
+    return res.status(201).location(at_id).send("Created @ "+at_id);
+    } else { // no change to key
+      // updating object, prefer a PUT, but can take it here
+      at_id = req.body['@id'];
+      return res.status(202).location(at_id).send("Updating "+at_id);
+    }
   });
 });
 
