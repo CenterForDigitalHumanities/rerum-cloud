@@ -106,7 +106,8 @@ function list (kind, limit, token, cb) {
 // [END list]
 
 app.get(['/res/:kind.json','/collection/:kind.json'], function(req,res){
-  // get all manifests (limit 20 for now)
+  req.params.kind = equivalence(req.params.kind);
+  // get all from collection (limit 20 for now)
   list(req.params.kind,20,null,function(err, results){
     if(err){
       return res.err(err);
@@ -122,6 +123,7 @@ app.get(['/res/:kind.json','/collection/:kind.json'], function(req,res){
 
 app.get('/res/:kind/:id.json',function(req,res){
   // get anything by id
+  req.params.kind = equivalence(req.params.kind);
   var key = dsClient.key([req.params.kind,parseInt(req.params.id)]);
   dsClient.get(key, function(err, entity){
     if(err){
@@ -134,10 +136,43 @@ app.get('/res/:kind/:id.json',function(req,res){
   });
 });
 
+/**
+ * Allow for requesting of collections by aliases and common prefixes.
+ * @param <string> kind The kind of things collected.
+ * @returns <string> The kind of the collection in the datastore.
+ */
+function equivalence(kind){
+  switch(kind.toUpperCase()){
+    case "MANIFEST":
+    case "HTTP://IIIF.IO/API/PRESENTATION/2#MANIFEST": kind="sc:Manifest";
+    break;
+    
+    case "SEQUENCE":
+    case "HTTP://IIIF.IO/API/PRESENTATION/2#SEQUENCE": kind="sc:Manifest";
+    break;
+
+    case "CANVAS":
+    case "FOLIO":
+    case "PAGE": 
+    case "HTTP://IIIF.IO/API/PRESENTATION/2#CANVAS": kind="sc:Canvas";
+    break;
+    
+    case "ANNOTATION":
+    case "TRANSCRIPTION":
+    case "LINE":
+    case "HTTP://WWW.W3.ORG/NS/OA#ANNOTATION": kind="oa:Annotation";
+    break;
+    
+    default : kind=kind;
+  }
+  return kind;
+}
+
 app.post('/res/:kind',function(req,res){
   // create anything
   var key;
-  if(req.params.kind !== req.body['@type'] && req.params.kind !== req.body._collection) {
+  req.params.kind = equivalence(req.params.kind);
+  if(req.params.kind !== equivalence(req.body['@type']) && req.params.kind !== equivalence(req.body._collection)) {
     return res.status(400).send("The @type '"+req.body['@type']
     +" does not match the collection ("+req.params.kind+") to which it is written. "
     +"Please add the _collection property, if you would like to compel the API.");
