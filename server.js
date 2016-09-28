@@ -126,6 +126,8 @@ app.get('/res/:kind/:id.json',function(req,res){
   req.params.kind = equivalence(req.params.kind);
   var key = dsClient.key([req.params.kind,parseInt(req.params.id)]);
   dsClient.get(key, function(err, entity){
+    // TODO: if known object, possibly load subdocuments (like annotations
+    // in a list or canvases in a Manifest/sequence)
     if(err){
       return res.err(err);
     }
@@ -187,6 +189,8 @@ app.post('/res/:kind',function(req,res){
     // if req.body['@id'], id is for somewhere else, but we'll fork it.
     key = dsClient.key(req.params.kind);
   }
+    // TODO: if known object, possibly break out subdocuments (like annotations
+    // in a list or canvases in a Manifest/sequence)
   dsClient.save({
     key: key,
     data: req.body
