@@ -1,8 +1,8 @@
 # RERUM GCS
 
-![logo](https://centerfordigitalhumanities.github.io/rerum-consortium/logo.png)
 Reconditorium Eximium Rerum Universalium Mutabiliumque for
 Google Cloud Services
+![logo](https://centerfordigitalhumanities.github.io/rerum-consortium/logo.png)
 
 ## An Open Exchange
 
