@@ -25,6 +25,38 @@ var dsClient = ds({
   namespace:'rerum'
 });
 
+/**
+ * Allow for requesting of collections by aliases and common prefixes.
+ * @param <string> kind The kind of things collected.
+ * @returns <string> The kind of the collection in the datastore.
+ */
+function equivalence(kind){
+  switch(kind.toUpperCase()){
+    case "MANIFEST":
+    case "HTTP://IIIF.IO/API/PRESENTATION/2#MANIFEST": kind="sc:Manifest";
+    break;
+    
+    case "SEQUENCE":
+    case "HTTP://IIIF.IO/API/PRESENTATION/2#SEQUENCE": kind="sc:Sequence";
+    break;
+
+    case "CANVAS":
+    case "FOLIO":
+    case "PAGE": 
+    case "HTTP://IIIF.IO/API/PRESENTATION/2#CANVAS": kind="sc:Canvas";
+    break;
+    
+    case "ANNOTATION":
+    case "TRANSCRIPTION":
+    case "LINE":
+    case "HTTP://WWW.W3.ORG/NS/OA#ANNOTATION": kind="oa:Annotation";
+    break;
+    
+    default : kind=kind;
+  }
+  return kind;
+}
+
 // Translates from Datastore's entity format to
 // the format expected by the application.
 //
@@ -108,6 +140,7 @@ function list (kind, limit, token, cb) {
 app.get(['/res/:kind.json','/collection/:kind.json'], function(req,res){
   req.params.kind = equivalence(req.params.kind);
   // get all from collection (limit 20 for now)
+  // TODO: ?query to build object
   list(req.params.kind,20,null,function(err, results){
     if(err){
       return res.err(err);
@@ -117,8 +150,6 @@ app.get(['/res/:kind.json','/collection/:kind.json'], function(req,res){
     }
     return res.json(results).status(200);
   });
-  // TODO: limit by req properties
-  
 });
 
 app.get('/res/:kind/:id.json',function(req,res){
@@ -138,37 +169,18 @@ app.get('/res/:kind/:id.json',function(req,res){
   });
 });
 
-/**
- * Allow for requesting of collections by aliases and common prefixes.
- * @param <string> kind The kind of things collected.
- * @returns <string> The kind of the collection in the datastore.
- */
-function equivalence(kind){
-  switch(kind.toUpperCase()){
-    case "MANIFEST":
-    case "HTTP://IIIF.IO/API/PRESENTATION/2#MANIFEST": kind="sc:Manifest";
-    break;
-    
-    case "SEQUENCE":
-    case "HTTP://IIIF.IO/API/PRESENTATION/2#SEQUENCE": kind="sc:Manifest";
-    break;
+app.post('/query', function(req,res){
+  // TODO: query with object
+  // eg: { for_project : 4080 }
+});
 
-    case "CANVAS":
-    case "FOLIO":
-    case "PAGE": 
-    case "HTTP://IIIF.IO/API/PRESENTATION/2#CANVAS": kind="sc:Canvas";
-    break;
-    
-    case "ANNOTATION":
-    case "TRANSCRIPTION":
-    case "LINE":
-    case "HTTP://WWW.W3.ORG/NS/OA#ANNOTATION": kind="oa:Annotation";
-    break;
-    
-    default : kind=kind;
-  }
-  return kind;
-}
+// TODO: extend for users to run 'contains' or regex or > or <, etc.
+/*
+ * proposal: 
+ * {   date : "01/01/2016",
+ *     _constraint : { date : ">" } // reserved
+ * }
+*/
 
 app.post('/res/:kind',function(req,res){
   // create anything
@@ -211,6 +223,28 @@ app.post('/res/:kind',function(req,res){
     }
   });
 });
+
+app.post('/multae/:kind',function(req,res){
+  // TODO: batch create
+});
+
+app.put('/res/:id',function(req,res){
+  // TODO: update anything or fail to find
+});
+
+app.put('/unset/:id',function(req,res){
+  // TODO:drop props or fail to find
+});
+
+app.put('/multae',function(req,res){
+  // TODO: batch update or unset props
+});
+
+app.delete('/res/:id',function(req,res){
+  // TODO: delete anything
+});
+
+
 
 // Basic 404 handler
 app.use(function (req, res) {
