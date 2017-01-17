@@ -1,5 +1,20 @@
 # API
 
+- [API](#api)
+    - [GET](#get)
+        - [Complete Collections](#complete-collections)
+            - [Collection Aliases (case insensitive)](#collection-aliases-case-insensitive)
+        - [Single Object](#single-object)
+    - [POST](#post)
+        - [Queries](#queries)
+        - [Create](#create)
+        - [Batch Create](#batch-create)
+    - [PUT](#put)
+        - [Update](#update)
+        - [Remove Properties](#remove-properties)
+        - [Batch Update](#batch-update)
+    - [DELETE](#delete)
+
 All the following interactions will take place between
 the server running RERUM and the application server. If
 you prefer to use the public RERUM server (which I hope
