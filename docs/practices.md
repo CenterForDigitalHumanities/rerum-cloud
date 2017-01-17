@@ -47,6 +47,6 @@ change really is an insignificant update (such as saving as a user types
 in a short input), consider holding the API call until a sync cycle when
 your application is more sure of the user's commitment to their annotation.
 More information about versioning is available in the
-[API documentation](#API).
+[API documentation](api.md).
 
 [home](index.md) | [Friendly Practices](practices.md) | [API](api.md) | [Register](register.md)
