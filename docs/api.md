@@ -15,6 +15,8 @@
         - [Remove Properties](#remove-properties)
         - [Batch Update](#batch-update)
     - [DELETE](#delete)
+    - [Smart objects](#smart-objects)
+    - [_rerum](#_rerum)
 
 All the following interactions will take place between
 the server running RERUM and the application server. If
@@ -229,5 +231,16 @@ in query results.
 | | | 404: "No record found."
 
 There is no batch `DELETE` planned.
+
+## Smart objects
+
+`stub` Known things in RERUM gain superpowers to save the
+embedded items and update batches cleverly.
+
+## _rerum
+
+`stub` There is a private property called `_rerum` that
+is an object on every stored object with metadata about
+the record retreived, such as it exists at the time.
 
 [home](index.md) | [Friendly Practices](practices.md) | [API](api.md) | [Register](register.md)
