@@ -11,6 +11,7 @@
         - [Batch Create](#batch-create)
     - [PUT](#put)
         - [Update](#update)
+        - [Add Properties](#add-properties)
         - [Remove Properties](#remove-properties)
         - [Batch Update](#batch-update)
     - [DELETE](#delete)
@@ -52,6 +53,12 @@ calls and inside the objects' `type` or `@type` properties.
 <dd>sc:canvas</dd>
 <dd>folio</dd>
 <dd>page</dd>
+<dt>range</dt>
+<dd>http://iiif.io/api/presentation/2#Range</dd>
+<dd>structure</dd>
+<dt>annotationlist</dt>
+<dd>http://iiif.io/api/presentation/2#AnnotationList</dd>
+<dd>annotationlist</dd>
 <dt>annotation</dt>
 <dd>http://www.w3.org/ns/oa#annotation</dd>
 <dd>oa:annotation</dd>
@@ -137,7 +144,20 @@ prevent simple typos from sending data into strange corners.
 
 ### Batch Create
 
-!help wanted: submit array, return location array
+| Patterns | Payloads | Responses
+| ---     | ---     | ---
+| `/res/:collection` | `[{JSON}]` | 200: "`[@id]`"
+
+The array of JSON objects passed in will be created in the
+order submitted and the response will have the URI of the new
+resource or an error message in the body as an array in the
+same order. [Smart objects](#smart-objects) will be handled a
+little differently.
+
+The response body will include status and errors as above for
+201, 202, 400, etc., but the detail will be much less than a
+single request. When errors are encountered, the batch process
+will attempt to continue for all submitted items.
 
 ## PUT
 
@@ -149,13 +169,25 @@ RERUM id.
 | Patterns | Payloads | Responses
 | ---     | ---     | ---
 | `/res/:id` | `{JSON}` | 202: `header.Location` "Updated `[@id]`
+| | | 400: "Unknown property."
 | | | 404: "No record found."
 
 A single object is updated with all properties in the
-JSON payload. Unnamed properties are not affected. New
-properties are added. `@type` will not be normalized
+JSON payload. Unnamed properties are not affected. Unknown
+properties throw 400 (use [set](#add-properties)). `@type` will not be normalized
 in storage and `@context` for [known types](#collection-aliases)
 are filled upon delivery and may be omitted.
+
+### Add Properties
+
+| Patterns | Payloads | Responses
+| ---     | ---     | ---
+| `/set/:id` | `{JSON}` | 202: `header.Location` "Updated `[@id]`
+| | | 404: "No record found."
+
+A single object is updated by adding all properties in the JSON
+payload. If a property already exists, it is overwritten without
+feedback.
 
 ### Remove Properties
 
@@ -170,7 +202,21 @@ to be dropped.
 
 ### Batch Update
 
-!help wanted: submit array (`res` or `unset`, return location array)
+| Patterns | Payloads | Responses
+| ---     | ---     | ---
+| `/[res,set,unset]/:id` | `[{JSON}]` | 202: "`[@id]`"
+
+The array of JSON objects passed in will be updated in the
+order submitted and the response will have the URI of the
+resource or an error message in the body as an array in the
+same order. [Smart objects](#smart-objects) will be handled a
+little differently.
+
+The request path will indicate the action and possible errors.
+The response body will include status and errors as above for
+201, 202, 400, etc., but the detail will be much less than a
+single request. When errors are encountered, the batch process
+will attempt to continue for all submitted items.
 
 ## DELETE
 
@@ -181,5 +227,7 @@ in query results.
 | ---     | ---     | ---
 | `res/:id` | `String` | 204
 | | | 404: "No record found."
+
+There is no batch `DELETE` planned.
 
 [home](index.md) | [Friendly Practices](practices.md) | [API](api.md) | [Register](register.md)
