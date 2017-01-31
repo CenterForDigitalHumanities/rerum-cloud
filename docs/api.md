@@ -36,7 +36,9 @@ be updated, so the `.json` extension on the calls is helpful.
 | `/res/:collection.json` | `empty` | 200: JSON \[obj]
 | `/collection/:collection.json` | | 404: "Empty Collection"
 
-- **`:collection`**—name of the `type` requested. See the below for aliases. Example: `/res/canvas.json` returns all `sc:Canvas` objects.
+- **`:collection`**—name of the `type` requested. See the below
+for aliases. Example: `/res/canvas.json` returns all `sc:Canvas`
+objects. Default limit is 20; send `?limit=INTEGER` to change.
 
 #### Collection Aliases (case insensitive)
 
@@ -101,7 +103,7 @@ in the future, but should serve the basic needs as it is.
 All responses are in a JSON Array, even if only a single
 record is returned. Submissions may be either JSON objects
 or Arrays of JSON objects. RERUM will test for property
-matches, so `{ "label" : "page 46" }` will match
+matches, so `{ "@type" : "sc:Canvas", "label" : "page 46" }` will match
 
 ~~~ (json)
 {
@@ -115,9 +117,13 @@ matches, so `{ "label" : "page 46" }` will match
 }
 ~~~
 
-Advanced queries are not yet supported, but are planned and
-are likely to follow MongoDB syntax. All `type` and `@type`
-queries are normalized based on the [aliases](#collection-aliases).
+**NB: all object queries must include a `type` or `@type` property.
+
+Advanced queries will be passed directly into the
+[GCS runQuery()](https://cloud.google.com/datastore/docs/reference/rest/v1/projects/runQuery)
+and are expected to be objects with `query` or `GqlQuery` at their root.
+All `type` and `@type` queries are normalized based on the
+[aliases](#collection-aliases).
 
 ### Create
 
