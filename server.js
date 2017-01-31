@@ -204,19 +204,16 @@ app.post('/query', function(req,res){
 */
 
 app.post('/res/:kind', function (req, res) {
-    console.log(req.body);
   // create anything
   var key;
   req.params.kind = alias.equivalence(req.params.kind);
   var entities = [];
   var ent;
   if (!Array.isArray(req.body)) {
-      console.log("array");
       // Arrayify if not batch
       req.body = [req.body];
   }
-  while (ent = req.pop()) {
-      console.log("pop" + ent);
+  while (ent = req.body.pop()) {
       if (req.params.kind !== alias.equivalence(ent['@type']) && req.params.kind !== alias.equivalence(ent._collection)) {
           return res.status(400).send("The @type '" + ent['@type']
           + " does not match the collection (" + req.params.kind + ") to which it is written. "
@@ -255,10 +252,6 @@ app.post('/res/:kind', function (req, res) {
               return res.status(202).location(at_id).send("Updating " + at_id);
           }
       });
-});
-
-app.post('/multae/:kind',function(req,res){
-  // TODO: batch create
 });
 
 app.put('/res/:id',function(req,res){
