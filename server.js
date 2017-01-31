@@ -46,8 +46,18 @@ function equivalence(kind){
     case "HTTP://IIIF.IO/API/PRESENTATION/2#CANVAS": kind="sc:Canvas";
     break;
     
+    case "RANGE": 
+    case "STRUCTURE": 
+    case "HTTP://IIIF.IO/API/PRESENTATION/2#RANGE": kind="sc:Range";
+    break;
+    
+    case "ANNOTATIONLIST": 
+    case "HTTP://IIIF.IO/API/PRESENTATION/2#ANNOTATIONLIST": kind="sc:AnnotationList";
+    break;
+    
     case "ANNOTATION":
     case "TRANSCRIPTION":
+    case "COMMENT":
     case "LINE":
     case "HTTP://WWW.W3.ORG/NS/OA#ANNOTATION": kind="oa:Annotation";
     break;
@@ -139,9 +149,9 @@ function list (kind, limit, token, cb) {
 
 app.get(['/res/:kind.json','/collection/:kind.json'], function(req,res){
   req.params.kind = equivalence(req.params.kind);
-  // get all from collection (limit 20 for now)
-  // TODO: ?query to build object
-  list(req.params.kind,20,null,function(err, results){
+  // get all from collection (limit 20 or ?limit)
+  var limit = parseInt(req.query.limit) || 20;
+  list(req.params.kind,limit,null,function(err, results){
     if(err){
       return res.err(err);
     }
@@ -172,6 +182,58 @@ app.get('/res/:kind/:id.json',function(req,res){
 app.post('/query', function(req,res){
   // TODO: query with object
   // eg: { for_project : 4080 }
+  var q = {
+      partitionId: {
+        projectId:config.get('GCLOUD_PROJECT'),
+        namespaceId:"rerum"
+      },
+  //     readOptions: {
+  //       "readConsistency": "STRONG",
+  // "transaction": dsClient.BeginTransaction()
+  //             }
+    };
+  // GCS runQuery() Object 
+  if(req.body.query || req.body.GqlQuery) {
+    var qtype = Object.keys(req.body)[0];
+    q[qtype] = req.body[qtype];
+  } else {
+
+  // Simple Object Query
+    var limit = parseInt(req.query.limit) || 20;
+    var kind = req.body.type || req.body['@type'];
+    if(kind) {
+      kind = equivalence(kind);
+    } else {
+      return res.status(400).send('Object queries must specify a type or collection.');
+    }
+    var gql = (function(){
+      var obj = req.body;
+      var query = ["SELECT * FROM "+kind +" WHERE"];
+      var prop,keys;
+      keys = Object.keys(obj);
+      while(prop=keys.pop()){
+        if(prop === "kind"
+          || prop === "type"
+          || prop === "@type") {
+            continue;
+          }
+          if (query.length > 2) {
+            query.push("AND");
+          }
+          query.push(prop + "=`" + obj[prop] + "`");
+      }
+      return query.join(" ");
+    })()
+    q.GqlQuery = gql;
+  }
+  
+  dsClient.runQuery(q, function (err, entities) {
+    if (err) {
+      return err;
+    }
+    return res.status(200).send(entities.map(fromDatastore));
+  });
+  
 });
 
 // TODO: extend for users to run 'contains' or regex or > or <, etc.
