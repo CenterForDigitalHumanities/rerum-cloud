@@ -9,6 +9,7 @@ var path = require('path');
 var async = require('async');
 var express = require('express');
 var config = require('./config');
+var alias = require('./alias');
 
 var app = express();
 app.set('json spaces', 2);
@@ -24,48 +25,6 @@ var dsClient = ds({
   keyFilename: './.auth.json',
   namespace:'rerum'
 });
-
-/**
- * Allow for requesting of collections by aliases and common prefixes.
- * @param <string> kind The kind of things collected.
- * @returns <string> The kind of the collection in the datastore.
- */
-function equivalence(kind){
-  switch(kind.toUpperCase()){
-    case "MANIFEST":
-    case "HTTP://IIIF.IO/API/PRESENTATION/2#MANIFEST": kind="sc:Manifest";
-    break;
-    
-    case "SEQUENCE":
-    case "HTTP://IIIF.IO/API/PRESENTATION/2#SEQUENCE": kind="sc:Sequence";
-    break;
-
-    case "CANVAS":
-    case "FOLIO":
-    case "PAGE": 
-    case "HTTP://IIIF.IO/API/PRESENTATION/2#CANVAS": kind="sc:Canvas";
-    break;
-    
-    case "RANGE": 
-    case "STRUCTURE": 
-    case "HTTP://IIIF.IO/API/PRESENTATION/2#RANGE": kind="sc:Range";
-    break;
-    
-    case "ANNOTATIONLIST": 
-    case "HTTP://IIIF.IO/API/PRESENTATION/2#ANNOTATIONLIST": kind="sc:AnnotationList";
-    break;
-    
-    case "ANNOTATION":
-    case "TRANSCRIPTION":
-    case "COMMENT":
-    case "LINE":
-    case "HTTP://WWW.W3.ORG/NS/OA#ANNOTATION": kind="oa:Annotation";
-    break;
-    
-    default : kind=kind;
-  }
-  return kind;
-}
 
 // Translates from Datastore's entity format to
 // the format expected by the application.
@@ -148,7 +107,7 @@ function list (kind, limit, token, cb) {
 // [END list]
 
 app.get(['/res/:kind.json','/collection/:kind.json'], function(req,res){
-  req.params.kind = equivalence(req.params.kind);
+  req.params.kind = alias.equivalence(req.params.kind);
   // get all from collection (limit 20 or ?limit)
   var limit = parseInt(req.query.limit) || 20;
   list(req.params.kind,limit,null,function(err, results){
@@ -164,7 +123,7 @@ app.get(['/res/:kind.json','/collection/:kind.json'], function(req,res){
 
 app.get('/res/:kind/:id.json',function(req,res){
   // get anything by id
-  req.params.kind = equivalence(req.params.kind);
+  req.params.kind = alias.equivalence(req.params.kind);
   var key = dsClient.key([req.params.kind,parseInt(req.params.id)]);
   dsClient.get(key, function(err, entity){
     // TODO: if known object, possibly load subdocuments (like annotations
@@ -202,7 +161,7 @@ app.post('/query', function(req,res){
     var limit = parseInt(req.query.limit) || 20;
     var kind = req.body.type || req.body['@type'];
     if(kind) {
-      kind = equivalence(kind);
+      kind = alias.equivalence(kind);
     } else {
       return res.status(400).send('Object queries must specify a type or collection.');
     }
@@ -244,46 +203,58 @@ app.post('/query', function(req,res){
  * }
 */
 
-app.post('/res/:kind',function(req,res){
+app.post('/res/:kind', function (req, res) {
+    console.log(req.body);
   // create anything
   var key;
-  req.params.kind = equivalence(req.params.kind);
-  if(req.params.kind !== equivalence(req.body['@type']) && req.params.kind !== equivalence(req.body._collection)) {
-    return res.status(400).send("The @type '"+req.body['@type']
-    +" does not match the collection ("+req.params.kind+") to which it is written. "
-    +"Please add the _collection property, if you would like to compel the API.");
+  req.params.kind = alias.equivalence(req.params.kind);
+  var entities = [];
+  var ent;
+  if (!Array.isArray(req.body)) {
+      console.log("array");
+      // Arrayify if not batch
+      req.body = [req.body];
   }
-  if(req.body['@id'] && req.body['@id'].indexOf(req.hostname+req.url)>-1){
-    // id already exists, add to key and scrub from body object.
-    var id = req.body['@id'];
-    var key_id = parseInt(id.substring(id.lastIndexOf("/")+1));
-    key = dsClient.key([req.params.kind,key_id]);
-  } else {
-    // partial key creates a new entry
-    // if req.body['@id'], id is for somewhere else, but we'll fork it.
-    key = dsClient.key(req.params.kind);
+  while (ent = req.pop()) {
+      console.log("pop" + ent);
+      if (req.params.kind !== alias.equivalence(ent['@type']) && req.params.kind !== alias.equivalence(ent._collection)) {
+          return res.status(400).send("The @type '" + ent['@type']
+          + " does not match the collection (" + req.params.kind + ") to which it is written. "
+          + "Please add the _collection property, if you would like to compel the API.");
+      }
+      if (ent['@id'] && ent['@id'].indexOf(req.hostname + req.url) > -1) {
+          // id already exists, add to key and scrub from body object.
+          var id = ent['@id'];
+          var key_id = parseInt(id.substring(id.lastIndexOf("/") + 1));
+          key = dsClient.key([req.params.kind, key_id]);
+      } else {
+          // partial key creates a new entry
+          // if req.body['@id'], id is for somewhere else, but we'll fork it.
+          key = dsClient.key(req.params.kind);
+      }
+      entities.push({
+          key: key,
+          data: ent
+      })
+      // TODO: if known object, possibly break out subdocuments (like annotations
+      // in a list or canvases in a Manifest/sequence)
   }
-    // TODO: if known object, possibly break out subdocuments (like annotations
-    // in a list or canvases in a Manifest/sequence)
-  dsClient.save({
-    key: key,
-    data: req.body
-  }, function(err, data){
-    if(err){
-      return res.err(err).send(err.response||"Save failed.");
-    }
-    var id,at_id;
-    if(data.mutationResults[0].key){
-      // New object forced a new id in the key
-      id = data.mutationResults[0].key.path[0].id;
-      at_id = req.protocol+"://"+req.hostname+req.url+"/"+id+".json";
-    return res.status(201).location(at_id).send("Created @ "+at_id);
-    } else { // no change to key
-      // updating object, prefer a PUT, but can take it here
-      at_id = req.body['@id'];
-      return res.status(202).location(at_id).send("Updating "+at_id);
-    }
-  });
+      dsClient.save(entities, function (err, data) {
+          if (err) {
+              return res.err(err).send(err.response || "Save failed.");
+          }
+          var id, at_id;
+          if (data.mutationResults[0].key) {
+              // New object forced a new id in the key
+              id = data.mutationResults[0].key.path[0].id;
+              at_id = req.protocol + "://" + req.hostname + req.url + "/" + id + ".json";
+              return res.status(201).location(at_id).send("Created @ " + at_id);
+          } else { // no change to key
+              // updating object, prefer a PUT, but can take it here
+              at_id = req.body['@id'];
+              return res.status(202).location(at_id).send("Updating " + at_id);
+          }
+      });
 });
 
 app.post('/multae/:kind',function(req,res){
