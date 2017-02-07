@@ -1,4 +1,20 @@
 ﻿/**
+ * Return the final kind value for the aliases as a list.
+ * For now, this is handmade, but it should be put into a gist-type
+ * list with options to load others for special projects.
+ */
+function getNames() {
+    return [
+        "sc:Manifest",
+        "sc:Sequence",
+        "sc:Canvas",
+        "sc:Range",
+        "sc:AnnotationList",
+        "oa:Annotation"
+    ];
+}
+
+/**
  * Allow for requesting of collections by aliases and common prefixes.
  * @param <string> kind The kind of things collected.
  * @returns <string> The kind of the collection in the datastore.
@@ -41,6 +57,7 @@ function equivalence(kind) {
 }
 
 module.exports = {
-    equivalence:equivalence
+    equivalence: equivalence,
+    getNames: getNames
 };
 

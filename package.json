@@ -5,12 +5,21 @@
   "main": "server.js",
   "repository": "https://github.com/CenterForDigitalHumanities/rerum-cloud",
   "author": "Patrick Cuba <cubap@slu.edu>",
-  "keywords": ["rerum","repository","annotation","IIIF","OAC","OngCDH"],
+  "keywords": [
+    "rerum",
+    "repository",
+    "annotation",
+    "IIIF",
+    "OAC",
+    "OngCDH"
+  ],
   "dependencies": {
     "@google-cloud/datastore": "^0.3.1",
     "async": "~0.2.8",
     "body-parser": "^1.15.2",
     "express": "*",
+    "express-jwt": "^5.1.0",
+    "jwks-rsa": "^1.1.1",
     "nconf": "^0.8.4"
   }
 }
