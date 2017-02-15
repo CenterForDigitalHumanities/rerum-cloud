@@ -8,8 +8,6 @@ var path = require('path');
 
 var async = require('async');
 var express = require('express');
-const jwt = require('express-jwt');
-const jwksRsa = require('jwks-rsa');
 var api = require('./api');
 var alias = require('./alias');
 
@@ -20,36 +18,27 @@ app.use(bodyParser.json()); // for parsing application/json
 
 var server = http.createServer(app);
 
-// Authentication middleware. When used, the
-// access token must exist and be verified against
-// the Auth0 JSON Web Key Set
-const jwtCheck = jwt({
-    // Dynamically provide a signing key based on the kid in the header and the singing keys provided by the JWKS endpoint.
-    secret: jwksRsa.expressJwtSecret({
-        cache: true,
-        rateLimit: true,
-        jwksRequestsPerMinute: 5,
-        jwksUri: `https://cubap.auth0.com/.well-known/jwks.json`
-    }),
-
-    // Validate the audience and the issuer.
-    audience: 'WSCfCWDNSZVRQrX09GUKnAX0QdItmCBI',
-    issuer: `https://cubap.auth0.com/`,
-    algorithms: ['RS256']
-});
-
-// Auth Check
-app.use(['/query', '/res/:id', '/set/:id', '/unset/:id',], jwtCheck);
-
 // Routes
 app.get(['/res/:kind.json','/collection/:kind.json'], api.getCollection);
-app.get('/res/:kind/:id.json', api.getByID);
-app.post('/query', api.sendQuery);
-app.post('/res/:kind', api.create);
-app.put('/res/:id',api.update);
-app.put('/set/:id', api.set);
-app.put('/unset/:id', api.unset);
-app.delete('/res/:id', api.delete);
+app.get('/res/:kind/:id.json', api.jwtCheck, api.getByID);
+app.post('/query', api.jwtCheck, api.sendQuery);
+app.post('/res/:kind', api.jwtCheck, api.create);
+app.put('/res/:id', api.jwtCheck,api.update);
+app.put('/set/:id', api.jwtCheck, api.set);
+app.put('/unset/:id', api.jwtCheck, api.unset);
+app.delete('/res/:id', api.jwtCheck, api.delete);
+
+// Auth Check
+app.use(api.allowReads); // api.jwtCheck on else
+// app.use(['/query', '/update/:id', '/set/:id', '/unset/:id',], api.jwtCheck);
+// app.use(api.jwt({
+//     secret: api.jwksRsa.expressJwtSecret({
+//         cache: true, rateLimit: true, jwksRequestsPerMinute: 5, jwksUri: ''
+//     }), 
+//     audience: 'http://rerum.io/api',
+//     issuer: 'https://cubap.auth0.com/',
+//     algorithms: ['RS256']
+// }));
 
 app.get('/res', function (req, res) {
     var names = alias.getNames();
@@ -60,6 +49,9 @@ app.get('/res', function (req, res) {
     page += "</body></html>";
     res.send(page);
 });
+
+// Static in /pages
+app.use(express.static('pages'));
 
 // Default Home
 app.get('*', function (req, res) {
@@ -77,6 +69,13 @@ app.get('*', function (req, res) {
 // Basic 404 handler
 app.use(function (req, res) {
   res.status(404).send('Not Found');
+});
+
+// return error message for unauthorized requests
+app.use(function (err, req, res, next) {
+    if (err.name === 'UnauthorizedError') {
+        res.status(401).json({ message: 'Missing or invalid token' });
+    }
 });
 
 // Basic error handler

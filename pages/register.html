@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Register your Application</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ"
+        crossorigin="anonymous">
+</head>
+
+<body>
+    <div class="container">
+<p> Each Application that wishes to access the Rerum API for writing and updating 
+    RERUM objects must be individually authorized. Simply create an account for the
+    application and use those credentials to obtain a token for your proxied requests.
+</p>
+<a href="#" onclick="(function(e){e.preventDefault();alert('no');})(event)"> > Learn More</a>
+    </div>
+    <a width="150" height="50" href="https://auth0.com/?utm_source=oss&utm_medium=gp&utm_campaign=oss" target="_blank" alt="Single Sign On & Token Based Authentication - Auth0">
+        <img width="150" height="50" alt="JWT Auth for open source projects" src="//cdn.auth0.com/oss/badges/a0-badge-light.png"
+        /></a>
+
+
+        <script src="https://cdn.auth0.com/js/auth0/8.2.0/auth0.min.js"></script>
+<script src="http://cdn.auth0.com/js/lock/10.11.0/lock.min.js"></script>
+    <script type="text/javascript">
+            // Initiating our Auth0Lock
+        var lock = new Auth0Lock(
+        'WSCfCWDNSZVRQrX09GUKnAX0QdItmCBI',
+        'cubap.auth0.com'
+        );
+        var options ={
+            auth: {
+                params: { scope: 'openid profile'}
+            },
+            additionalSignUpFields:[{
+                name: "Application Name",
+                placeholder: "Simple label or website"
+            }]
+        }
+        // Listening for the authenticated event
+        lock.on("authenticated", function(authResult) {
+        // Use the token in authResult to getUserInfo() and save it to localStorage
+        lock.getUserInfo(authResult.accessToken, function(error, profile) {
+            if (error) {
+            // Handle error
+            return;
+            }
+
+            localStorage.setItem('accessToken', authResult.accessToken);
+            localStorage.setItem('profile', JSON.stringify(profile));
+        });
+        });
+    </script>
+</body>
+
+</html>

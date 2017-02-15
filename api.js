@@ -3,6 +3,11 @@ var alias = require('./alias');
 
 var ds = require('@google-cloud/datastore');
 
+const jwt = require('express-jwt');
+const jwksRsa = require('jwks-rsa');
+
+const baseURL = "http://localhost:3000";
+
 var dsClient = ds({
     projectId: config.get('GCLOUD_PROJECT'),
     keyFilename: './.auth.json',
@@ -26,7 +31,7 @@ var dsClient = ds({
 //     property: value
 //   }
 function fromDatastore(obj) {
-    obj.data["@id"] = "https://api-cubap.c9users.io/res/" + obj.data["@type"] + "/" + obj.key.id + ".json";
+    obj.data["@id"] = baseURL + "/res/" + obj.data["@type"] + "/" + obj.key.id + ".json";
     return obj.data;
 }
 
@@ -88,6 +93,25 @@ function list(kind, limit, token, cb) {
     });
 }
 // [END list]
+
+// Authentication middleware. When used, the
+// access token must exist and be verified against
+// the Auth0 JSON Web Key Set
+const jwtCheck = jwt({
+    // Dynamically provide a signing key based on the kid in the header and the singing keys provided by the JWKS endpoint.
+    secret: jwksRsa.expressJwtSecret({
+        cache: true,
+        rateLimit: true,
+        jwksRequestsPerMinute: 5,
+        jwksUri: `https://cubap.auth0.com/.well-known/jwks.json`
+    }),
+
+    // Validate the audience and the issuer.
+    audience: 'WSCfCWDNSZVRQrX09GUKnAX0QdItmCBI',
+    issuer: `https://cubap.auth0.com/`,
+    algorithms: ['RS256']
+});
+
 
 module.exports = {
 
@@ -247,5 +271,16 @@ module.exports = {
 
     delete: function (req, res) {
         // TODO: delete anything
-    }
+    },
+    // Auth Check
+    allowReads: function(req,res,next){
+        if(req.method === "GET") {
+            next();
+        } else {
+          res.send(403, {message:'Forbidden'});
+        }
+    },
+    jwt:jwt,
+    jwtCheck: jwtCheck,
+    jwksRsa: jwksRsa
 };
