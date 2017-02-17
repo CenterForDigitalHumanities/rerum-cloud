@@ -7,51 +7,88 @@
     <title>Register your Application</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ"
         crossorigin="anonymous">
+        <style type="text/css">
+            img.auth0-lock-custom-icon {
+                width: 40px !important;
+                /* avoid big icons in Lock */
+                left: 1px !important;
+                top: 1px !important;
+            }
+        </style>
 </head>
 
 <body>
     <div class="container">
-<p> Each Application that wishes to access the Rerum API for writing and updating 
-    RERUM objects must be individually authorized. Simply create an account for the
-    application and use those credentials to obtain a token for your proxied requests.
-</p>
-<a href="#" onclick="(function(e){e.preventDefault();alert('no');})(event)"> > Learn More</a>
+        <p> Each Application that wishes to access the Rerum API for writing and updating RERUM objects must be individually
+            authorized. Simply create an account for the application and use those credentials to obtain a token for your
+            proxied requests.
+        </p>
+        <p id="messages"></p>
+        <a href="#" onclick="(function(e){e.preventDefault();alert('no');})(event)"> > Learn More</a>
+
+        <button onclick="lock.show();" class="btn btn-primary btn-block btn-lg">Register your Application</button>
     </div>
     <a width="150" height="50" href="https://auth0.com/?utm_source=oss&utm_medium=gp&utm_campaign=oss" target="_blank" alt="Single Sign On & Token Based Authentication - Auth0">
         <img width="150" height="50" alt="JWT Auth for open source projects" src="//cdn.auth0.com/oss/badges/a0-badge-light.png"
         /></a>
 
 
-        <script src="https://cdn.auth0.com/js/auth0/8.2.0/auth0.min.js"></script>
-<script src="http://cdn.auth0.com/js/lock/10.11.0/lock.min.js"></script>
+    <script src="https://cdn.auth0.com/js/auth0/8.2.0/auth0.min.js"></script>
+    <script src="http://cdn.auth0.com/js/lock/10.11.0/lock.min.js"></script>
     <script type="text/javascript">
-            // Initiating our Auth0Lock
-        var lock = new Auth0Lock(
-        'WSCfCWDNSZVRQrX09GUKnAX0QdItmCBI',
-        'cubap.auth0.com'
-        );
-        var options ={
-            auth: {
-                params: { scope: 'openid profile'}
-            },
-            additionalSignUpFields:[{
-                name: "Application Name",
-                placeholder: "Simple label or website"
-            }]
-        }
-        // Listening for the authenticated event
-        lock.on("authenticated", function(authResult) {
-        // Use the token in authResult to getUserInfo() and save it to localStorage
-        lock.getUserInfo(authResult.accessToken, function(error, profile) {
-            if (error) {
-            // Handle error
-            return;
-            }
+                         var options = {
+                             allowLogin: false,
+                             auth: {
+                                 // params: { scope: 'openid profile' }
+                             },
+                             additionalSignUpFields: [{
+                                 name: "Application",
+                                 placeholder: "Application name or website",
+                                 icon: 'http://t-pen.org/TPEN28/images/classictpen.svg'
+                             }],
+                             theme: {
+                                 logo: "https://centerfordigitalhumanities.github.io/rerum-consortium/logo.png",
+                                 primaryColor: "#0275d8",
+                                 socialButtonStyle: 'small',
+                                 name: 'RERUM'
+                             },
+                             languageDictionary: {
+                                 emailInputPlaceholder: "admin@your.app",
+                                 passwordInputPlaceholder: "password"
+                             }
+                         }
+                         // Initiating our Auth0Lock
+                         var lock = new Auth0Lock(
+                             'WSCfCWDNSZVRQrX09GUKnAX0QdItmCBI',
+                             'cubap.auth0.com',
+                             options
+                         );
+                         // Listening for the authenticated event
+                         lock.on("authenticated", function (authResult) {
+                             // Use the token in authResult to getUserInfo() and save it to localStorage
+                             lock.getUserInfo(authResult.accessToken, function (error, profile) {
+                                 if (error) {
+                                     // Handle error
+                                     return;
+                                 }
 
-            localStorage.setItem('accessToken', authResult.accessToken);
-            localStorage.setItem('profile', JSON.stringify(profile));
-        });
-        });
+                                 localStorage.setItem('accessToken', authResult.accessToken);
+                                 localStorage.setItem('profile', JSON.stringify(profile));
+                                 showToken();
+                             });
+                         });
+                         function showToken() {
+                             var m = document.getElementById('messages');
+                             var t;
+                             if (t = localStorage.getItem('accessToken')) {
+                                 m.innerHTML = "Current token is " + t;
+                                 m.className = "alert alert-info";
+                                 m.style.display = "block";
+                             } else {
+                                 m.style.display = "none";
+                             }
+                         }
+                         showToken();
     </script>
 </body>
 
