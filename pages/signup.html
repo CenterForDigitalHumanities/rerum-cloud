@@ -4,10 +4,11 @@
 
 <head>
     <meta charset="utf-8" />
-    <title>Register your Application</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Signup for RERUM</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ"
         crossorigin="anonymous">
-<script src="https://use.fontawesome.com/4ae676603d.js"></script>
+        <script src="https://use.fontawesome.com/4ae676603d.js"></script>
         <style type="text/css">
             img.auth0-lock-custom-icon {
                 width: 40px !important;
@@ -23,18 +24,11 @@
         <p> Each Application that wishes to access the Rerum API for writing and updating RERUM objects must be individually
             authorized. Simply create an account for the application and use those credentials to obtain a token for your
             proxied requests.
-        <a href="#" onclick="(function(e){e.preventDefault();alert('no');})(event)"> > Learn More</a>
         </p>
         <p id="messages"></p>
+        <a href="#" onclick="(function(e){e.preventDefault();alert('no');})(event)"> > Learn More</a>
 
-        <button onclick="lock.show();" class="btn btn-primary btn-block btn-lg form-group">Register your Application</button>
-
-<p class="alert alert-info">
-    <i class="fa fa-info"></i>
-    This form creates API users for application servers. If you would like to create an account for an
-    individual RERUM user with access to RERUM tools and web applications, <a class='btn btn-info btn-sm' href="signup.html">click here</a>
-</p>
-
+        <button onclick="lock.show();" class="btn btn-primary btn-block btn-lg">Create an Account</button>
     </div>
     <a width="150" height="50" href="https://auth0.com/?utm_source=oss&utm_medium=gp&utm_campaign=oss" target="_blank" alt="Single Sign On & Token Based Authentication - Auth0">
         <img width="150" height="50" alt="JWT Auth for open source projects" src="//cdn.auth0.com/oss/badges/a0-badge-light.png"
@@ -49,11 +43,6 @@
                              auth: {
                                  // params: { scope: 'openid profile' }
                              },
-                             additionalSignUpFields: [{
-                                 name: "Application",
-                                 placeholder: "Application name or website",
-                                 icon: 'http://t-pen.org/TPEN28/images/classictpen.svg'
-                             }],
                              theme: {
                                  logo: "https://centerfordigitalhumanities.github.io/rerum-consortium/logo.png",
                                  primaryColor: "#0275d8",
@@ -67,7 +56,7 @@
                          }
                          // Initiating our Auth0Lock
                          var lock = new Auth0Lock(
-                             'WSCfCWDNSZVRQrX09GUKnAX0QdItmCBI',
+                             'lGWCTAnTALCaq8dub7RhZfpnlR1q2XTT',
                              'cubap.auth0.com',
                              options
                          );
@@ -85,12 +74,41 @@
                                  showToken();
                              });
                          });
+                         var webAuth = new auth0.WebAuth({
+                            domain:       'cubap.auth0.com',
+                            clientID:     'lGWCTAnTALCaq8dub7RhZfpnlR1q2XTT'
+                         });
+                         function logout() {
+                             webAuth.logout({
+                                 returnTo: 'http://localhost:3000',
+                                 client_id: 'lGWCTAnTALCaq8dub7RhZfpnlR1q2XTT'
+                             });
+                         }
                          function showToken() {
                              var m = document.getElementById('messages');
-                             var t;
+                             var t, p;
                              if (t = localStorage.getItem('accessToken')) {
-                                 m.innerHTML = "Current token is " + t;
                                  m.className = "alert alert-success";
+                                 var msg = "";
+                                 if (p = localStorage.getItem('profile')) {
+                                     p = JSON.parse(p);
+                                     if (p.user_metadata && p.user_metadata.application) {
+                                         // API user, not individual
+                                         msg += "<p class='lead'><i class='fa fa-exclamation-triangle'></i> This account is an API account for <strong>"
+                                             + p.user_metadata.application + "</strong> and will not grant user access to RERUM interfaces.";
+                                         m.className = "alert alert-danger";
+                                     }
+                                     msg += "<p>Logged in as <strong>" + p.nickname + "</strong>"
+                                         + "&lt;" + p.email + "&gt; <img height='80' class='pull-right' src='" + p.picture + "' alt='avatar'></p>";
+                                 } else {
+                                     var e = new CustomEvent('authenticated', {
+                                         accessToken: t
+                                     });
+                                     window.dispatchEvent(e);
+                                 }
+                                 msg += "<p>Current token is " + t + "</p>";
+                                 msg += "<button onclick='logout()' type='button' class='btn btn-primary'>Logout</button>";
+                                 m.innerHTML = msg;
                                  m.style.display = "block";
                              } else {
                                  m.style.display = "none";
