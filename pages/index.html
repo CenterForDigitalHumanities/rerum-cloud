@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>RERUM User Management</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ"
+        crossorigin="anonymous">
+        <script src="https://use.fontawesome.com/4ae676603d.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <button id="logout" onclick='logout()' type='button' class='btn btn-primary pull-right'>Logout</button>
+        <p> Welcome to the Rerum Users Portal. Here you can sign up for an account that will
+            authenticate you on any partner site.
+        </p>
+        <p id="messages"></p>
+
+        <div id="profile"></div>
+        <button onclick="lock.show();" class="btn btn-primary btn-block btn-lg">Login or Get a RERUM Account</button>
+    </div>
+    <a width="150" height="50" href="https://auth0.com/?utm_source=oss&utm_medium=gp&utm_campaign=oss" target="_blank" alt="Single Sign On & Token Based Authentication - Auth0">
+        <img width="150" height="50" alt="JWT Auth for open source projects" src="//cdn.auth0.com/oss/badges/a0-badge-light.png"
+        /></a>
+
+    <script src="https://cdn.auth0.com/js/auth0/8.2.0/auth0.min.js"></script>
+    <script src="http://cdn.auth0.com/js/lock/10.11.0/lock.min.js"></script>
+    <script type="text/javascript">
+                         var options = {
+                             allowLogin: false,
+                             requires_username:true,
+                             auth: {
+                                 // params: { scope: 'openid profile' }
+                             },
+                             theme: {
+                                 logo: "https://centerfordigitalhumanities.github.io/rerum-consortium/logo.png",
+                                 primaryColor: "#0275d8",
+                                 socialButtonStyle: 'small',
+                                 name: 'RERUM'
+                             },
+                             languageDictionary: {
+                                 emailInputPlaceholder: "admin@your.app",
+                                 passwordInputPlaceholder: "password"
+                             }
+                         }
+                         // Initiating our Auth0Lock
+                         var lock = new Auth0Lock(
+                             'lGWCTAnTALCaq8dub7RhZfpnlR1q2XTT',
+                             'cubap.auth0.com',
+                             options
+                         );
+                         // Listening for the authenticated event
+                         lock.on("authenticated", function (authResult) {
+                             // Use the token in authResult to getUserInfo() and save it to localStorage
+                             lock.getUserInfo(authResult.accessToken, function (error, profile) {
+                                 if (error) {
+                                     // Handle error
+                                     return;
+                                 }
+
+                                 localStorage.setItem('accessToken', authResult.accessToken);
+                                 localStorage.setItem('profile', JSON.stringify(profile));
+                                 showToken();
+                             });
+                         });
+                         var webAuth = new auth0.WebAuth({
+                            domain:       'cubap.auth0.com',
+                            clientID:     'lGWCTAnTALCaq8dub7RhZfpnlR1q2XTT'
+                         });
+                         function logout() {
+                             var logout = function() {
+                                localStorage.removeItem('id_token');
+                                window.location.href = "/";
+                            };
+                         }
+                         function showToken() {
+                             var m = document.getElementById('messages');
+                             var t, p;
+                             if (t = localStorage.getItem('accessToken')) {
+                                 m.className = "alert alert-success";
+                                 var msg = "";
+                                 if (p = localStorage.getItem('profile')) {
+                                     p = JSON.parse(p);
+                                     if (p.user_metadata && p.user_metadata.application) {
+                                         // API user, not individual
+                                         msg += "<p class='lead'><i class='fa fa-exclamation-triangle'></i> This account is an API account for <strong>"
+                                             + p.user_metadata.application + "</strong> and will not grant user access to RERUM interfaces.";
+                                         m.className = "alert alert-danger";
+                                     }
+                                     msg += "<p>Logged in as <strong>" + p.nickname + "</strong>"
+                                         + "&lt;" + p.email + "&gt; <img height='80' class='pull-right' src='" + p.picture + "' alt='avatar'></p>";
+                                 } else {
+                                     var e = new CustomEvent('authenticated', {
+                                         accessToken: t
+                                     });
+                                     window.dispatchEvent(e);
+                                 }
+                                 msg += "<p>Current token is " + t + "</p>";
+                                 m.innerHTML = msg;
+                                 m.style.display = "block";
+                                 document.getElementById("logout").style.display = "block";
+                                 renderProfile(p);
+                             } else {
+                                 m.style.display = "none";
+                                 document.getElementById("logout").style.display = "none";
+                             }
+                         }
+                         function renderProfile(profile){
+                             var p = document.getElementById("profile");
+                             var content = JSON.stringify(profile);
+
+                             p.innerHTML = content;
+                         }
+                         showToken();
+    </script>
+</body>
+
+</html>

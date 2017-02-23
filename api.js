@@ -10,11 +10,7 @@ const baseURL = "http://localhost:3000";
 
 var dsClient = ds({
     projectId: config.get('GCLOUD_PROJECT'),
-    credentials: {
-        private_key:process.env.CRED_KEY.replace(/\\n/g, '\n'),
-        client_email:process.env.CRED_MAIL
-    },
-    //keyFilename: './.auth.json',
+    keyFilename: './.auth.json',
     namespace: 'rerum'
 });
 
