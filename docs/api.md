@@ -1,4 +1,4 @@
-# API
+# API (0.0.1)
 
 - [API](#api)
     - [GET](#get)
@@ -133,7 +133,7 @@ in response.
 | Patterns | Payloads | Responses
 | ---     | ---     | ---
 | `/res/:collection` | `{JSON}` | 201: `header.Location` "Created @ `[@id]`
-| | | 202: `header.Location` "Updating `[@id]`
+| | | 202: `header.Location` "Updated `[@id]`
 | | | 400: "@type mismatch"
 
 Accepts only single JSON objects for RERUM storage. Mints a
@@ -186,6 +186,13 @@ properties throw 400 (use [set](#add-properties)). `@type` will not be normalize
 in storage and `@context` for [known types](#collection-aliases)
 are filled upon delivery and may be omitted.
 
+When an object is updated, the `@id` will be changed, as the previous
+version will maintain its place in the history of that object. To overwrite
+the same object, instead of creating a new version, include `?overwrite=true`
+in the request. See [Friendly Practices](practices.md) for the rare times when
+creating a new entry in the history is not wanted and [Versioning](version.md)
+for an explanation of how each object's history is maintained in RERUM.
+
 ### Add Properties
 
 | Patterns | Payloads | Responses
@@ -218,7 +225,8 @@ The array of JSON objects passed in will be updated in the
 order submitted and the response will have the URI of the
 resource or an error message in the body as an array in the
 same order. [Smart objects](#smart-objects) will be handled a
-little differently.
+little differently. Batch updating has no equivalent `overwrite`
+parameter.
 
 The request path will indicate the action and possible errors.
 The response body will include status and errors as above for
@@ -240,13 +248,39 @@ There is no batch `DELETE` planned.
 
 ## Smart objects
 
-`stub` Known things in RERUM gain superpowers to save the
-embedded items and update batches cleverly.
+Known things in RERUM gain superpowers to save the embedded
+items and update batches cleverly. To trigger this behavior,
+add `?recursive=true` to create or update requests. GET the
+new object from the location returned to learn the new URIs
+assigned to the embedded entities.
+
+| Object | Behavior
+| ---     | ---     | ---
+| Manifest  | Also create or update any Canvases, AnnotationLists, or Annotations within.
+| Canvas    | Also create or update any AnnotationLists or Annotations within.
+| AnnotationLists | Also create or update Annotations within.
+
+In fact, the recursive flag will tell RERUM to traverse any object and look
+for these known types to also update, but the standard structure of IIIF
+objects means that the action will be much more reliable.
 
 ## _rerum
 
-`stub` There is a private property called `_rerum` that
-is an object on every stored object with metadata about
-the record retreived, such as it exists at the time.
+Each object has a private property called `_rerum` containing a metadata
+object about the record retreived, such as it exists at the time.
+
+| Property | Type | Description
+| ---     | ---     | ---
+| history.prime   | String    | The URI of the very top object in this history.
+| history.next    | [String]  | An array of URIs for the updated versions of this object. A length > 1 indicates a fork.
+| history.previous| String    | The URI of the immediately previous version of this object.
+| generatedBy     | String    | Reference to the application whose key was used to commit the object.
+| createdAt       | timestamp | Though the object may also assert this about itself, RERUM controls this value.
+| isOverwritten   | timestamp | Written when `?overwrite=true` is used. Does not expose the delta, just the update.
+| isPublished     | boolean   | Simple reference for queries of the RERUM publishing motivations.
+
+In the future, this may be encoded as an annotation on the object, using 
+existing vocabularies, but for now the applications accessing RERUM will
+need to interpret these data if it is relevant.
 
 [home](index.md) | [Friendly Practices](practices.md) | [API](api.md) | [Register](register.md)
