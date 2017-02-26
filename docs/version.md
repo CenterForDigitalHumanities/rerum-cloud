@@ -77,7 +77,7 @@ So the history of A2 looks like this:
 Now the model works for everyone. The museum has an open project, the paleographer has a
 project she controls, and every contribution through history is automatic. The problem
 that has been introduced, however, is how should a Manifest viewer display these annotations?
-To show them all is all their versions would quickly overwhelm, but depending on the moment
+To show them all in all their versions would quickly overwhelm, but depending on the moment
 the "most recent" annotation may be from either fork. Moreover, the paleographer may not
 intend for these annotations, though stored in an open repository, to be considered a
 finished project, suitable for display or citing. The simplest answer is that a repository
