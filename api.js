@@ -14,6 +14,16 @@ var dsClient = ds({
     namespace: 'rerum'
 });
 
+var keyCache = {}; // { APIKEY: { name:APPNAME, expires:TIME}}
+
+function getApplication(apikey){
+    if(keyCache[apikey]){
+        return keyCache[apikey].name;
+    } else {
+        // go get it
+    }
+};
+
 // Translates from Datastore's entity format to
 // the format expected by the application.
 //
