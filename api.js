@@ -104,6 +104,14 @@ function list(kind, limit, token, cb) {
 }
 // [END list]
 
+function collectionMismatch(req,res,ent){
+    if (req.params.kind !== alias.equivalence(ent['@type']) && req.params.kind !== alias.equivalence(ent._collection)) {
+        return res.status(400).send("The @type '" + ent['@type'] +
+            " does not match the collection (" + req.params.kind + ") to which it is written. " +
+            "Please add the _collection property, if you would like to compel the API.");
+    }
+}
+
 // Authentication middleware. When used, the
 // access token must exist and be verified against
 // the Auth0 JSON Web Key Set
@@ -192,9 +200,9 @@ module.exports = {
                 var prop, keys;
                 keys = Object.keys(obj);
                 while (prop = keys.pop()) {
-                    if (prop === "kind"
-                        || prop === "type"
-                        || prop === "@type") {
+                    if (prop === "kind" ||
+                        prop === "type" ||
+                        prop === "@type") {
                         continue;
                     }
                     if (query.length > 2) {
@@ -227,27 +235,46 @@ module.exports = {
             req.body = [req.body];
         }
         while (ent = req.body.pop()) {
-            if (req.params.kind !== alias.equivalence(ent['@type']) && req.params.kind !== alias.equivalence(ent._collection)) {
-                return res.status(400).send("The @type '" + ent['@type']
-                    + " does not match the collection (" + req.params.kind + ") to which it is written. "
-                    + "Please add the _collection property, if you would like to compel the API.");
-            }
-            if (ent['@id'] && ent['@id'].indexOf(req.hostname + req.url) > -1) {
-                // id already exists, add to key and scrub from body object.
-                var id = ent['@id'];
-                var key_id = parseInt(id.substring(id.lastIndexOf("/") + 1));
-                key = dsClient.key([req.params.kind, key_id]);
+            collectionMismatch(req,res,ent);
+            if (ent['@id']) {
+                // id already exists, update instead.
+                this.update([ent]);
+                continue;
+                //     var id = ent['@id'];
+                //     var key_id = parseInt(id.substring(id.lastIndexOf("/") + 1));
+                //     key = dsClient.key([req.params.kind, key_id]);
             } else {
                 // partial key creates a new entry
                 // if req.body['@id'], id is for somewhere else, but we'll fork it.
                 key = dsClient.key(req.params.kind);
             }
+            ent._rerum = {
+                history: {
+                    prime: "root",
+                    next: null,
+                    previous: false
+                },
+                generatedBy: "TODO", // TODO: get application from key
+                createdAt: Date.now()
+            };
+            if (ent.motivation.indexOf("rr:publishing") +
+                ent["oa:hasMotivation"].indexOf("rr:publishing") > -2) {
+                ent._rerum.isPublished = true;
+            }
+            if (ent.motivation.indexOf("rr:unpublishing") +
+                ent["oa:hasMotivation"].indexOf("rr:unpublishing") > -2) {
+                ent._rerum.isPublished = false;
+            }
             entities.push({
                 key: key,
                 data: ent
             })
-            // TODO: if known object, possibly break out subdocuments (like annotations
-            // in a list or canvases in a Manifest/sequence)
+            if (req.query.recursive) {
+                // TODO: if known object, possibly break out subdocuments (like annotations
+                // in a list or canvases in a Manifest/sequence)
+                // https://cloud.google.com/datastore/docs/concepts/entities#datastore-key-with-multilevel-parent-nodejs
+                console.log("Recursive saving is not yet implemented.");
+            }
         }
         dsClient.save(entities, function (err, data) {
             if (err) {
@@ -260,23 +287,37 @@ module.exports = {
                 at_id = req.protocol + "://" + req.hostname + req.url + "/" + id + ".json";
                 return res.status(201).location(at_id).send("Created @ " + at_id);
             } else { // no change to key
-                // updating object, prefer a PUT, but can take it here
+                // updating object, prefer a PUT, this should not happen
                 at_id = req.body['@id'];
-                return res.status(202).location(at_id).send("Updating " + at_id);
+                return res.status(202).location(at_id).send("Updated " + at_id);
             }
         });
     },
 
     update: function (req, res) {
         // TODO: update anything or fail to find
+        var key;
+        req.params.kind = alias.equivalence(req.params.kind);
+        var entities = [];
+        var ent;
+        if (!Array.isArray(req.body)) {
+            // Arrayify if not batch
+            req.body = [req.body];
+        }
+        while (ent = req.body.pop()) {
+            collectionMismatch(req,res,ent);
+            // TODO: apply patch?
+        }
     },
 
     set: function (req, res) {
         // TODO:add props or fail to find
+        // maybe this is all in update, or a patch
     },
 
     unset: function (req, res) {
         // TODO:drop props or fail to find
+        // maybe this is all in update, or a patch
     },
 
     delete: function (req, res) {
