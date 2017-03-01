@@ -22,11 +22,11 @@ var server = http.createServer(app);
 app.get(['/res/:kind.json','/collection/:kind.json'], api.getCollection);
 app.get('/res/:kind/:id.json', api.jwtCheck, api.getByID);
 app.post('/query', api.jwtCheck, api.sendQuery);
-app.post('/res/:kind', api.jwtCheck, api.create);
-app.put('/res/:id', api.jwtCheck,api.update);
-app.put('/set/:id', api.jwtCheck, api.set);
-app.put('/unset/:id', api.jwtCheck, api.unset);
-app.delete('/res/:id', api.jwtCheck, api.delete);
+app.post('/res/:kind/:kind', api.jwtCheck, api.create);
+app.put('/res/:kind/:id', api.jwtCheck,api.update);
+app.put('/set/:kind/:id', api.jwtCheck, api.set);
+app.put('/unset/:kind/:id', api.jwtCheck, api.unset);
+app.delete('/res/:kind/:id', api.jwtCheck, api.delete);
 
 // Auth Check
 app.use(api.allowReads); // api.jwtCheck on else
