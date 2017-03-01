@@ -1,324 +1,286 @@
-var config = require('./config');
-var alias = require('./alias');
+# API (0.0.1)
 
-var ds = require('@google-cloud/datastore');
+- [API](#api)
+    - [GET](#get)
+        - [Complete Collections](#complete-collections)
+            - [Collection Aliases (case insensitive)](#collection-aliases-case-insensitive)
+        - [Single Object](#single-object)
+    - [POST](#post)
+        - [Queries](#queries)
+        - [Create](#create)
+        - [Batch Create](#batch-create)
+    - [PUT](#put)
+        - [Update](#update)
+        - [Add Properties](#add-properties)
+        - [Remove Properties](#remove-properties)
+        - [Batch Update](#batch-update)
+    - [DELETE](#delete)
+    - [Smart objects](#smart-objects)
+    - [_rerum](#_rerum)
 
-const jwt = require('express-jwt');
-const jwksRsa = require('jwks-rsa');
+All the following interactions will take place between
+the server running RERUM and the application server. If
+you prefer to use the public RERUM server (which I hope
+you do), the base URL is `http://rerum.io/api`. All API
+calls may throw a `403` for unrecognized applications or
+`500` for server errors. For the moment, JSON is the
+format for most of the successful responses, but this may
+be updated, so the `.json` extension on the calls is helpful.
 
-const baseURL = "http://localhost:3000";
+## GET
 
-var dsClient = ds({
-    projectId: config.get('GCLOUD_PROJECT'),
-    keyFilename: './.auth.json',
-    namespace: 'rerum'
-});
+### Complete Collections
 
-// Translates from Datastore's entity format to
-// the format expected by the application.
-//
-// Datastore format:
-//   {
-//     key: [kind, id],
-//     data: {
-//       property: value
-//     }
-//   }
-//
-// Application format:
-//   {
-//     id: id,
-//     property: value
-//   }
-function fromDatastore(obj) {
-    obj.data["@id"] = baseURL + "/res/" + obj.data["@type"] + "/" + obj.key.id + ".json";
-    return obj.data;
+| Patterns | Payloads | Responses
+| ---     | ---     | ---
+| `/res/:collection.json` | `empty` | 200: JSON \[obj]
+| `/collection/:collection.json` | | 404: "Empty Collection"
+
+- **`:collection`**—name of the `type` requested. See the below
+for aliases. Example: `/res/canvas.json` returns all `sc:Canvas`
+objects. Default limit is 20; send `?limit=INTEGER` to change.
+
+#### Collection Aliases (case insensitive)
+
+The following may all be used interchangeably within API
+calls and inside the objects' `type` or `@type` properties.
+
+<dl>
+<dt>manifest</dt>
+<dd>http://iiif.io/api/presentation/2#manifest</dd>
+<dd>sc:manifest</dd>
+<dt>sequence</dt>
+<dd>http://iiif.io/api/presentation/2#sequence</dd>
+<dd>sc:sequence</dd>
+<dt>canvas</dt>
+<dd>http://iiif.io/api/presentation/2#canvas</dd>
+<dd>sc:canvas</dd>
+<dd>folio</dd>
+<dd>page</dd>
+<dt>range</dt>
+<dd>http://iiif.io/api/presentation/2#Range</dd>
+<dd>structure</dd>
+<dt>annotationlist</dt>
+<dd>http://iiif.io/api/presentation/2#AnnotationList</dd>
+<dd>annotationlist</dd>
+<dt>annotation</dt>
+<dd>http://www.w3.org/ns/oa#annotation</dd>
+<dd>oa:annotation</dd>
+<dd>transcription</dd>
+<dd>comment</dd>
+<dd>line</dd>
+</dl>
+
+Returns an entire collection in RERUM groups objects by
+`type` or `@type` properties. These groups can be very large
+and these calls should be limited. Consider the
+[query](#queries) call for a more targeted approach.
+
+### Single Object
+
+| Patterns | Payloads | Responses
+| ---     | ---     | ---
+| `/res/:collection/:id.json` | `empty` | 200: JSON obj
+| | | 404: "No record found."
+
+Returns the single record which matches the RERUM-assigned
+`@id` string. This is a quicker way to access single objects
+without using [query](#queries).
+
+## POST
+
+### Queries
+
+The bulk of any application's interactions with RERUM will be
+in the queries. This simple format will be made more complex
+in the future, but should serve the basic needs as it is.
+
+| Patterns | Payloads | Responses
+| ---     | ---     | ---
+| `/query` | `{JSON}` | 200: JSON [obj]
+| | `[{JSON}]` | 404: "No records found"
+
+All responses are in a JSON Array, even if only a single
+record is returned. Submissions may be either JSON objects
+or Arrays of JSON objects. RERUM will test for property
+matches, so `{ "@type" : "sc:Canvas", "label" : "page 46" }` will match
+
+~~~ (json)
+{
+  "@id": "https://rerum.io/api/res/sc:Canvas/5644406560391168.json",
+  "otherContent": [],
+  "label": "page 46",
+  "width": 730,
+  "images": [],
+  "height": 1000,
+  "@type": "sc:Canvas"
 }
+~~~
 
-// Translates from the application's format to the datastore's
-// extended entity property format. It also handles marking any
-// specified properties as non-indexed. Does not translate the key.
-//
-// Application format:
-//   {
-//     id: id,
-//     property: value,
-//     unindexedProperty: value
-//   }
-//
-// Datastore extended format:
-//   [
-//     {
-//       name: property,
-//       value: value
-//     },
-//     {
-//       name: unindexedProperty,
-//       value: value,
-//       excludeFromIndexes: true
-//     }
-//   ]
-function toDatastore(obj, nonIndexed) {
-    nonIndexed = nonIndexed || [];
-    var results = [];
-    Object.keys(obj).forEach(function(k) {
-        if (obj[k] === undefined) {
-            return;
-        }
-        results.push({
-            name: k,
-            value: obj[k],
-            excludeFromIndexes: nonIndexed.indexOf(k) !== -1
-        });
-    });
-    return results;
-}
+**NB: all object queries must include a `type` or `@type` property.
 
-// Lists all of kind in the Datastore.
-// The ``limit`` argument determines the maximum amount of results to
-// return per page. The ``token`` argument allows requesting additional
-// pages. The callback is invoked with ``(err, books, nextPageToken)``.
-// [START list]
-function list(kind, limit, token, cb) {
-    var q = dsClient.createQuery('rerum', kind)
-        .limit(limit)
-        .start(token);
+Advanced queries will be passed directly into the
+[GCS runQuery()](https://cloud.google.com/datastore/docs/reference/rest/v1/projects/runQuery)
+and are expected to be objects with `query` or `GqlQuery` at their root.
+All `type` and `@type` queries are normalized based on the
+[aliases](#collection-aliases).
 
-    dsClient.runQuery(q, function(err, entities, nextQuery) {
-        if (err) {
-            return cb(err);
-        }
-        var hasMore = entities.length === limit ? nextQuery.startVal : false;
-        cb(null, entities.map(fromDatastore), hasMore);
-    });
-}
-// [END list]
+### Create
 
-// Authentication middleware. When used, the
-// access token must exist and be verified against
-// the Auth0 JSON Web Key Set
-const jwtCheck = jwt({
-    // Dynamically provide a signing key based on the kid in the header and the singing keys provided by the JWKS endpoint.
-    secret: jwksRsa.expressJwtSecret({
-        cache: true,
-        rateLimit: true,
-        jwksRequestsPerMinute: 5,
-        jwksUri: `https://cubap.auth0.com/.well-known/jwks.json`
-    }),
+Add a completely new object to RERUM and receive the location
+in response.
 
-    // Validate the audience and the issuer.
-    audience: 'WSCfCWDNSZVRQrX09GUKnAX0QdItmCBI',
-    issuer: `https://cubap.auth0.com/`,
-    algorithms: ['RS256']
-});
+| Patterns | Payloads | Responses
+| ---     | ---     | ---
+| `/res/:collection` | `{JSON}` | 201: `header.Location` "Created @ `[@id]`
+| | | 202: `header.Location` "Updated `[@id]`
+| | | 400: "@type mismatch"
 
-function collectionMismatch(req, res, ent) {
-    if (req.params.kind !== alias.equivalence(ent['@type']) && req.params.kind !== alias.equivalence(ent._collection)) {
-        return res.status(400).send("The @type '" + ent['@type'] +
-            " does not match the collection (" + req.params.kind + ") to which it is written. " +
-            "Please add the _collection property, if you would like to compel the API.");
-    }
-}
-module.exports = {
+Accepts only single JSON objects for RERUM storage. Mints a
+new URI and returns the object's location as a header. If the
+object already contains an `@id` that matches an object in RERUM,
+it will be updated instead, though [update](#update) is preferred
+for that use.
 
-    names: alias.getNames,
+The `:collection` parameter is normalized based on the
+[aliases](#collection-aliases) and used as a sanity check. If
+the `type` or `@type` does not match the indicated `collection`,
+a `_collection` property must be included to force the object
+into an incongruent `collection`. This parameter is also
+capable of creating new collections dynamically, so this helps
+prevent simple typos from sending data into strange corners.
 
-    getCollection: function(req, res) {
-        req.params.kind = alias.equivalence(req.params.kind);
-        // get all from collection (limit 20 or ?limit)
-        var limit = parseInt(req.query.limit) || 20;
-        list(req.params.kind, limit, null, function(err, results) {
-            if (err) {
-                return res.err(err);
-            }
-            if (results.length === 0) {
-                return res.status(404).send('Empty collection.');
-            }
-            return res.json(results).status(200);
-        });
-    },
+### Batch Create
 
-    getByID: function(req, res) {
-        // get anything by id
-        req.params.kind = alias.equivalence(req.params.kind);
-        var key = dsClient.key([req.params.kind, parseInt(req.params.id)]);
-        dsClient.get(key, function(err, entity) {
-            // TODO: if known object, possibly load subdocuments (like annotations
-            // in a list or canvases in a Manifest/sequence)
-            if (err) {
-                return res.err(err);
-            }
-            if (!entity) {
-                return res.status(404).send('No record found.');
-            }
-            return res.json(fromDatastore(entity)).status(200);
-        });
-    },
+| Patterns | Payloads | Responses
+| ---     | ---     | ---
+| `/res/:collection` | `[{JSON}]` | 200: "`[@id]`"
 
-    sendQuery: function(req, res) {
-        // TODO: query with object
-        // eg: { for_project : 4080 }
-        var q = {
-            partitionId: {
-                projectId: config.get('GCLOUD_PROJECT'),
-                namespaceId: "rerum"
-            },
-            //     readOptions: {
-            //       "readConsistency": "STRONG",
-            // "transaction": dsClient.BeginTransaction()
-            //             }
-        };
-        // GCS runQuery() Object 
-        if (req.body.query || req.body.GqlQuery) {
-            var qtype = Object.keys(req.body)[0];
-            q[qtype] = req.body[qtype];
-        } else {
+The array of JSON objects passed in will be created in the
+order submitted and the response will have the URI of the new
+resource or an error message in the body as an array in the
+same order. [Smart objects](#smart-objects) will be handled a
+little differently.
 
-            // Simple Object Query
-            var limit = parseInt(req.query.limit) || 20;
-            var kind = req.body.type || req.body['@type'];
-            if (kind) {
-                kind = alias.equivalence(kind);
-            } else {
-                return res.status(400).send('Object queries must specify a type or collection.');
-            }
-            var gql = (function() {
-                var obj = req.body;
-                var query = ["SELECT * FROM " + kind + " WHERE"];
-                var prop, keys;
-                keys = Object.keys(obj);
-                while (prop = keys.pop()) {
-                    if (prop === "kind" ||
-                        prop === "type" ||
-                        prop === "@type") {
-                        continue;
-                    }
-                    if (query.length > 2) {
-                        query.push("AND");
-                    }
-                    query.push(prop + "=`" + obj[prop] + "`");
-                }
-                return query.join(" ");
-            })()
-            q.GqlQuery = gql;
-        }
+The response body will include status and errors as above for
+201, 202, 400, etc., but the detail will be much less than a
+single request. When errors are encountered, the batch process
+will attempt to continue for all submitted items.
 
-        dsClient.runQuery(q, function(err, entities) {
-            if (err) {
-                return err;
-            }
-            return res.status(200).send(entities.map(fromDatastore));
-        });
+## PUT
 
-    },
+### Update
 
-    create: function(req, res) {
-        // create anything
-        var key;
-        req.params.kind = alias.equivalence(req.params.kind);
-        var entities = [];
-        var ent;
-        if (!Array.isArray(req.body)) {
-            // Arrayify if not batch
-            req.body = [req.body];
-        }
-        while (ent = req.body.pop()) {
-            collectionMismatch(req, res, ent);
-            if (ent['@id']) {
-                // id already exists, update instead.
-                this.update([ent]);
-                continue;
-                //     var id = ent['@id'];
-                //     var key_id = parseInt(id.substring(id.lastIndexOf("/") + 1));
-                //     key = dsClient.key([req.params.kind, key_id]);
-            } else {
-                // partial key creates a new entry
-                key = dsClient.key(req.params.kind);
-            }
-            ent._rerum = {
-                history: {
-                    prime: "root",
-                    next: null,
-                    previous: false
-                },
-                generatedBy: "TODO", // TODO: get application from key
-                createdAt: Date.now()
-            };
-            if (ent.motivation.indexOf("rr:publishing") +
-                ent["oa:hasMotivation"].indexOf("rr:publishing") > -2) {
-                ent._rerum.isPublished = true;
-            }
-            if (ent.motivation.indexOf("rr:unpublishing") +
-                ent["oa:hasMotivation"].indexOf("rr:unpublishing") > -2) {
-                ent._rerum.isPublished = false;
-            }
-            entities.push({
-                key: key,
-                data: ent
-            });
-            if (req.query.recursive) {
-                // TODO: if known object, possibly break out subdocuments (like annotations
-                // in a list or canvases in a Manifest/sequence)
-                // https://cloud.google.com/datastore/docs/concepts/entities#datastore-key-with-multilevel-parent-nodejs
-                console.log("Recursive saving is not yet implemented.");
-            }
-        }
-        dsClient.save(entities, function(err, data) {
-            if (err) {
-                return res.err(err).send(err.response || "Save failed.");
-            }
-            var id, at_id;
-            if (data.mutationResults[0].key) {
-                // New object forced a new id in the key
-                id = data.mutationResults[0].key.path[0].id;
-                at_id = req.protocol + "://" + req.hostname + req.url + "/" + id + ".json";
-                return res.status(201).location(at_id).send("Created @ " + at_id);
-            } else { // no change to key
-                // updating object, prefer a PUT, this should not happen
-                at_id = req.body['@id'];
-                return res.status(202).location(at_id).send("Updated " + at_id);
-            }
-        });
-    },
+Update an existing record through reference to its internal
+RERUM id.
 
-    update: function(req, res) {
-        // TODO: update anything or fail to find
-        var key;
-        req.params.kind = alias.equivalence(req.params.kind);
-        var entities = [];
-        var ent;
-        if (!Array.isArray(req.body)) {
-            // Arrayify if not batch
-            req.body = [req.body];
-        }
-        while (ent = req.body.pop()) {
-            collectionMismatch(req, res, ent);
-            // TODO: apply patch?
-        }
-    },
+| Patterns | Payloads | Responses
+| ---     | ---     | ---
+| `/res/:id` | `{JSON}` | 202: `header.Location` "Updated `[@id]`
+| | | 400: "Unknown property."
+| | | 404: "No record found."
 
-    set: function(req, res) {
-        // TODO:add props or fail to find
-        // maybe this is all in update, or a patch
-    },
+A single object is updated with all properties in the
+JSON payload. Unnamed properties are not affected. Unknown
+properties throw 400 (use [set](#add-properties)). `@type` will not be normalized
+in storage and `@context` for [known types](#collection-aliases)
+are filled upon delivery and may be omitted.
 
-    unset: function(req, res) {
-        // TODO:drop props or fail to find
-        // maybe this is all in update, or a patch
-    },
+When an object is updated, the `@id` will be changed, as the previous
+version will maintain its place in the history of that object. To overwrite
+the same object, instead of creating a new version, include `?overwrite=true`
+in the request. See [Friendly Practices](practices.md) for the rare times when
+creating a new entry in the history is not wanted and [Versioning](version.md)
+for an explanation of how each object's history is maintained in RERUM.
 
-    delete: function(req, res) {
-        // TODO: delete anything
-    },
-    // Auth Check
-    allowReads: function(req, res, next) {
-        if (req.method === "GET") {
-            next();
-        } else {
-            res.send(403, { message: 'Forbidden' });
-        }
-    },
-    jwt: jwt,
-    jwtCheck: jwtCheck,
-    jwksRsa: jwksRsa
-};
+### Add Properties
+
+| Patterns | Payloads | Responses
+| ---     | ---     | ---
+| `/set/:id` | `{JSON}` | 202: `header.Location` "Updated `[@id]`
+| | | 404: "No record found."
+
+A single object is updated by adding all properties in the JSON
+payload. If a property already exists, it is overwritten without
+feedback.
+
+### Remove Properties
+
+| Patterns | Payloads | Responses
+| ---     | ---     | ---
+| `/unset/:id` | `{JSON}` | 202: `header.Location` "Updated `[@id]`
+| | | 404: "No record found."
+
+A single object is updated by dropping all properties
+in the JSON payload. If a value is included, it must match
+to be dropped.
+
+### Batch Update
+
+| Patterns | Payloads | Responses
+| ---     | ---     | ---
+| `/[res,set,unset]/:id` | `[{JSON}]` | 202: "`[@id]`"
+
+The array of JSON objects passed in will be updated in the
+order submitted and the response will have the URI of the
+resource or an error message in the body as an array in the
+same order. [Smart objects](#smart-objects) will be handled a
+little differently. Batch updating has no equivalent `overwrite`
+parameter.
+
+The request path will indicate the action and possible errors.
+The response body will include status and errors as above for
+201, 202, 400, etc., but the detail will be much less than a
+single request. When errors are encountered, the batch process
+will attempt to continue for all submitted items.
+
+## DELETE
+
+Mark an object as deleted. Deleted objects are not included
+in query results.
+
+| Patterns | Payloads | Responses
+| ---     | ---     | ---
+| `res/:id` | `String` | 204
+| | | 404: "No record found."
+
+There is no batch `DELETE` planned.
+
+## Smart objects
+
+Known things in RERUM gain superpowers to save the embedded
+items and update batches cleverly. To trigger this behavior,
+add `?recursive=true` to create or update requests. GET the
+new object from the location returned to learn the new URIs
+assigned to the embedded entities.
+
+| Object | Behavior
+| ---     | ---     | ---
+| Manifest  | Also create or update any Canvases, AnnotationLists, or Annotations within.
+| Canvas    | Also create or update any AnnotationLists or Annotations within.
+| AnnotationLists | Also create or update Annotations within.
+
+In fact, the recursive flag will tell RERUM to traverse any object and look
+for these known types to also update, but the standard structure of IIIF
+objects means that the action will be much more reliable.
+
+## _rerum
+
+Each object has a private property called `_rerum` containing a metadata
+object about the record retreived, such as it exists at the time.
+
+| Property | Type | Description
+| ---     | ---     | ---
+| history.prime   | String    | The URI of the very top object in this history.
+| history.next    | [String]  | An array of URIs for the updated versions of this object. A length > 1 indicates a fork.
+| history.previous| String    | The URI of the immediately previous version of this object.
+| generatedBy     | String    | Reference to the application whose key was used to commit the object.
+| createdAt       | timestamp | Though the object may also assert this about itself, RERUM controls this value.
+| isOverwritten   | timestamp | Written when `?overwrite=true` is used. Does not expose the delta, just the update.
+| isPublished     | boolean   | Simple reference for queries of the RERUM publishing motivations.
+
+In the future, this may be encoded as an annotation on the object, using 
+existing vocabularies, but for now the applications accessing RERUM will
+need to interpret these data if it is relevant.
+
+[home](index.md) | [Friendly Practices](practices.md) | [API](api.md) | [Register](register.md)
