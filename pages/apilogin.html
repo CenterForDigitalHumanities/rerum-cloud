@@ -14,13 +14,13 @@
 <body>
     <div class="container">
         <button id="logout" onclick='logout()' type='button' class='btn btn-primary pull-right'>Logout</button>
-        <p> Welcome to the Rerum Users Portal. Here you can sign up for an account that will
-            authenticate you on any partner site.
+        <p> Welcome to the Rerum API Portal. Here you can manage the account that 
+            authenticates your application.
         </p>
         <p id="messages"></p>
 
         <div id="profile"></div>
-        <button onclick="lock.show();" class="btn btn-primary btn-block btn-lg">Login or Get a RERUM Account</button>
+        <button id="login" onclick="lock.show();" class="btn btn-primary btn-block btn-lg"> Login </button>
     </div>
     <a width="150" height="50" href="https://auth0.com/?utm_source=oss&utm_medium=gp&utm_campaign=oss" target="_blank" alt="Single Sign On & Token Based Authentication - Auth0">
         <img width="150" height="50" alt="JWT Auth for open source projects" src="//cdn.auth0.com/oss/badges/a0-badge-light.png"
@@ -30,7 +30,7 @@
     <script src="//cdn.auth0.com/js/lock/10.11.0/lock.min.js"></script>
     <script type="text/javascript">
                          var options = {
-                             allowLogin: true,
+                             showSignup: false,
                              requires_username:true,
                              auth: {
                                  // params: { scope: 'openid profile' }
@@ -48,7 +48,7 @@
                          }
                          // Initiating our Auth0Lock
                          var lock = new Auth0Lock(
-                             'lGWCTAnTALCaq8dub7RhZfpnlR1q2XTT',
+                             'WSCfCWDNSZVRQrX09GUKnAX0QdItmCBI',
                              'cubap.auth0.com',
                              options
                          );
@@ -68,7 +68,7 @@
                          });
                          var webAuth = new auth0.WebAuth({
                             domain:       'cubap.auth0.com',
-                            clientID:     'lGWCTAnTALCaq8dub7RhZfpnlR1q2XTT'
+                            clientID:     'WSCfCWDNSZVRQrX09GUKnAX0QdItmCBI'
                          });
                          function logout() {
                              var logout = function() {
@@ -84,13 +84,13 @@
                                  var msg = "";
                                  if (p = localStorage.getItem('profile')) {
                                      p = JSON.parse(p);
-                                     if (p.user_metadata && p.user_metadata.application) {
+                                     if (p.user_metadata && !p.user_metadata.application) {
                                          // API user, not individual
-                                         msg += "<p class='lead'><i class='fa fa-exclamation-triangle'></i> This account is an API account for <strong>"
-                                             + p.user_metadata.application + "</strong> and will not grant user access to RERUM interfaces.";
+                                         msg += "<p class='lead'><i class='fa fa-exclamation-triangle'></i> This account is not an API account "
+                                             + "and will not grant user access to RERUM API.";
                                          m.className = "alert alert-danger";
                                      }
-                                     msg += "<p>Logged in as <strong>" + p.nickname + "</strong>"
+                                     msg += "<p>Logged in on behalf of <strong>" + p.user_metadata.application + "</strong>"
                                          + "&lt;" + p.email + "&gt; <img height='80' class='pull-right' src='" + p.picture + "' alt='avatar'></p>";
                                  } else {
                                      var e = new CustomEvent('authenticated', {
@@ -102,6 +102,7 @@
                                  m.innerHTML = msg;
                                  m.style.display = "block";
                                  document.getElementById("logout").style.display = "block";
+                                 document.getElementById("login").style.display = "none";
                                  renderProfile(p);
                              } else {
                                  m.style.display = "none";
@@ -116,6 +117,10 @@
                          }
                          showToken();
     </script>
+    
+    <h4>TODO</h4>
+    <p>refresh token</p>
+    <p>cookbook</p>
 </body>
 
 </html>
