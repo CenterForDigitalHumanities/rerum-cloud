@@ -55,7 +55,8 @@ If someone else comes in and suggests a change to an annotation for which the pa
 has already created a more recent version, the history of the annotation branches, allowing
 both current versions to share ancestry without collision.
 
-> <span style="font-style:initial !important">Created four lines on a page in the museum project:
+<span style="font-style:initial !important">
+> Created four lines on a page in the museum project:
 > ```json
 > {A1:Museum1}, {A2:Museum1}, {A3:Museum2}, {A4:Museum1}
 > ```
@@ -80,7 +81,8 @@ both current versions to share ancestry without collision.
 >           |  {A2.2}             {A2} updated by Museum2
 >           ↓   ↓
 >     future updates have two options now
-> ``` </span>
+> ``` 
+</span>
 
 Now the model works for everyone. The museum has an open project, the paleographer has a
 project she controls, and every contribution through history is automatic. The problem
