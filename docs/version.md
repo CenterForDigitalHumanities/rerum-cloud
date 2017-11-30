@@ -55,7 +55,6 @@ If someone else comes in and suggests a change to an annotation for which the pa
 has already created a more recent version, the history of the annotation branches, allowing
 both current versions to share ancestry without collision.
 
-<style>blockquote{font-style:initial !important;}</style>
 > Created four lines on a page in the museum project:
 > ```json
 > {A1:Museum1}, {A2:Museum1}, {A3:Museum2}, {A4:Museum1}
