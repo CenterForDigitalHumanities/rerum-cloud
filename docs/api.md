@@ -16,7 +16,7 @@
         - [Batch Update](#batch-update)
     - [DELETE](#delete)
     - [Smart objects](#smart-objects)
-    - [_rerum](#_rerum)
+    - [__rerum](#__rerum)
 
 All the following interactions will take place between
 the server running RERUM and the application server. If
@@ -264,20 +264,22 @@ In fact, the recursive flag will tell RERUM to traverse any object and look
 for these known types to also update, but the standard structure of IIIF
 objects means that the action will be much more reliable.
 
-## _rerum
+## __rerum
 
-Each object has a private property called `_rerum` containing a metadata
+Each object has an immutable property called `__rerum` containing a metadata
 object about the record retreived, such as it exists at the time.
 
-| Property | Type | Description
-| ---     | ---     | ---
-| history.prime   | String    | The URI of the very top object in this history.
-| history.next    | [String]  | An array of URIs for the updated versions of this object. A length > 1 indicates a fork.
-| history.previous| String    | The URI of the immediately previous version of this object.
-| generatedBy     | String    | Reference to the application whose key was used to commit the object.
-| createdAt       | timestamp | Though the object may also assert this about itself, RERUM controls this value.
-| isOverwritten   | timestamp | Written when `?overwrite=true` is used. Does not expose the delta, just the update.
-| isPublished     | boolean   | Simple reference for queries of the RERUM publishing motivations.
+| Property         | Type      | Description
+| ---              | ---       | ---
+| history.prime    | String    | The URI of the very top object in this history.
+| history.next     | [String]  | An array of URIs for the updated versions of this object. A length > 1 indicates a fork.
+| history.previous | String    | The URI of the immediately previous version of this object.
+| generatedBy      | String    | Reference to the application whose key was used to commit the object.
+| createdAt        | timestamp | Though the object may also assert this about itself, RERUM controls this value.
+| isOverwritten    | timestamp | Written when `?overwrite=true` is used. Does not expose the delta, just the update.
+| isReleased       | boolean   | Simple reference for queries of the RERUM releasing motivations.
+| releases.previous|  String   | URI of the released version most recent anscestor in the chain.
+| releases.next    | [String]  | Array of URIs for the first `released` decendant in the downstream branches
 
 In the future, this may be encoded as an annotation on the object, using 
 existing vocabularies, but for now the applications accessing RERUM will
